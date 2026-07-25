@@ -1,0 +1,28 @@
+# Secrets. .env holds the Pexels key, the DB connection string and the FB/IG tokens.
+# build.ps1 copies it into dist/, so that copy must stay ignored too.
+.env
+
+# .NET build output
+bin/
+obj/
+dist/
+
+# Node
+node_modules/
+web/tsconfig.tsbuildinfo
+
+# Vite build output - regenerated into the API's wwwroot by launch/build.ps1
+src/CatMeme.Api/wwwroot/
+
+# Pipeline runtime data, ~1 GB of generated media and logs. All of it is
+# reproducible output, not source: rendered reels, sourced backgrounds, clip
+# thumbnails, scratch renders, per-batch topic dumps and rolling logs.
+pipeline/assets/
+pipeline/output/
+pipeline/work/
+pipeline/logs/
+pipeline/topics/
+
+# Source compilations the clip library is cut from - large binaries, and the
+# paths are configured in .env rather than assumed to live in the repo.
+*.mp4
