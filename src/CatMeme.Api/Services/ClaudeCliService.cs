@@ -32,11 +32,34 @@ public partial class ClaudeCliService(
 
     /// <summary>
     /// Scripts requested per CLI invocation. Each one is a 6-9 beat storyboard with full
-    /// directives, so a batch of five is over 20KB of generated JSON in a single reply.
-    /// Asking in small chunks keeps every call far inside <see cref="CliTimeout"/> and
-    /// means a late failure costs one chunk instead of the whole batch.
+    /// directives, so a large batch is a lot of generated JSON in a single reply. Chunking
+    /// keeps every call far inside <see cref="CliTimeout"/> and means a late failure costs
+    /// one chunk instead of the whole batch.
+    ///
+    /// Five, because that is the default batch size: the common case is then a single call
+    /// and pays the per-call prompt overhead once. Five scripts measured 81 seconds, so the
+    /// timeout has ample headroom and there is no reason to split the usual batch further.
     /// </summary>
-    private const int TopicsPerCall = 3;
+    private const int TopicsPerCall = 5;
+
+    /// <summary>
+    /// Replaces the interactive agent's system prompt. This job is one-shot text
+    /// generation: there is no conversation to manage, no tools to choose between, and no
+    /// repository to reason about.
+    /// </summary>
+    private const string ScriptWriterSystemPrompt =
+        "You are a comedy writer for short-form cat meme reels. You reply with exactly " +
+        "the JSON the user asks for: no markdown, no prose, no code fences.";
+
+    /// <summary>
+    /// Extended thinking is billed as output tokens, and against this prompt it bought
+    /// nothing measurable: with it and without it, every returned script passed the same
+    /// acceptance checks at the same 7-beat average. It cost 3.8x the output tokens and
+    /// 5.5x the wall time, because the constraints here are a checklist to follow rather
+    /// than a problem to reason through.
+    /// </summary>
+    private static readonly Dictionary<string, string> NoExtendedThinking =
+        new() { ["MAX_THINKING_TOKENS"] = "0" };
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -139,16 +162,23 @@ public partial class ClaudeCliService(
               must think "this is literally us". NO absurdist exaggeration, no surreal
               images, no clever metaphors - "he acts like he's dying when he has a cold"
               is right; "he has already written his will" is wrong.
-            - Every script must be a DIFFERENT scenario. Spread across themes such as:
-              jealousy, stealing food, ignoring texts, hogging the bed/blanket, spending
-              money, gym or gaming obsession, the silent treatment, apologising badly,
-              meeting the friend group ("the boys"), bad cooking, borrowing clothes,
-              who pays the bill, waking up early/late, pretending to be fine,
-              overreacting to small mistakes. Invent fresh ones too.
-            - Couple humor (me/gf, me/bf, her/him) or friend-group humor ("that one friend
-              who..."). Do not write two scripts on the same theme in one batch.
-            - "cat_a_label" / "cat_b_label" are short role tags shown next to each cat:
-              "Me", "Gf", "Bro", "her:", "him:", "Mom". Two cats are on screen almost always.
+            - EVERY script is about a ROMANTIC RELATIONSHIP. The two cats are a couple -
+              me/gf, me/bf, her/him. This is the whole channel, so there are no exceptions:
+              never write friend-group, roommate, sibling, parent, pet or coworker jokes.
+              No "that one friend who...", no "the boys", no "my mom", no "my roommate".
+              If a scenario only works between friends, it is the wrong scenario.
+            - Every script must be a DIFFERENT scenario. Spread across the situations
+              couples actually argue and joke about: the silent treatment, "I'm not mad",
+              jealousy over who they were texting, apologising badly, hogging the bed or
+              the blanket, eating off my plate, leaving me on read, spending money without
+              saying, choosing the gym or the game over me, refusing to get up / setting a
+              5am alarm, pretending to be fine, overreacting to something tiny, borrowing
+              my hoodie and keeping it, who pays, taking forever to get ready, saying they
+              don't care where we eat and then rejecting everywhere. Invent fresh ones too.
+              Do not write two scripts on the same theme in one batch.
+            - "cat_a_label" / "cat_b_label" are short role tags shown next to each cat, and
+              must read as a couple: "Me", "Gf", "Bf", "her:", "him:", "bae". Two cats are
+              on screen almost always.
             - "cat_a_action" / "cat_b_action": the reaction each cat visibly performs,
               chosen ONLY from this list: {{{string.Join(", ", ClipActions)}}}.
               The two cats MUST have DIFFERENT actions - the joke is the contrast between
@@ -175,9 +205,15 @@ public partial class ClaudeCliService(
                  "transition":TRANSITION,"sound_cue":SOUND_CUE,
                  "interaction_action":INTERACTION_ACTION}}. Rules:
                 * exactly 6 to 9 beats, mostly alternating; no filler or repeated beat
-                * beat 1 ROLE is setup; one or more middle beats are escalation or
-                  time_change; the LAST beat ROLE is payoff and lands the strongest joke
                 * ROLE is only: setup, escalation, time_change, reaction, payoff
+                * EXACTLY ONE beat has ROLE setup, and it MUST be the first beat. No later
+                  beat may be setup, however much it feels like a second scene opening.
+                * EXACTLY ONE beat has ROLE payoff, and it MUST be the last beat. No
+                  earlier beat may be payoff. It lands the strongest joke.
+                * at least one beat between the first and the last has ROLE escalation or
+                  time_change. Every other middle beat is reaction.
+                * a time_change beat MUST have non-empty "text" - a short card label such
+                  as "5:00 AM" or "a few moments later". A blank time card is rejected.
                 * each turn UNDER 60 characters - these are text-message length, not speeches
                 * text may be empty ONLY for a purely visual beat with an action or stage cue
                 * write it as real talk, no quotation marks
@@ -500,7 +536,21 @@ public partial class ClaudeCliService(
         else
         {
             // -p runs Claude in non-interactive print mode.
-            result = await runner.RunAsync(_claudeCli, ["-p", prompt], timeout, ct: ct);
+            //
+            // The rest strips the interactive agent down to the one thing this pipeline
+            // wants: JSON on stdout. Its default system prompt, its tool definitions and
+            // the CLAUDE.md files for whatever directory the app was started from are all
+            // billed on every call and none of them can influence a pure text generation
+            // - the CLAUDE.md picked up here was about editing YouTube videos in CapCut.
+            // Measured on a three-script request: 26,535 input tokens -> 3,536, with the
+            // same scripts accepted at the same beat count.
+            result = await runner.RunAsync(_claudeCli,
+                ["-p", prompt,
+                 "--system-prompt", ScriptWriterSystemPrompt,
+                 "--tools", "",
+                 "--setting-sources", "",
+                 "--strict-mcp-config"],
+                timeout, environment: NoExtendedThinking, ct: ct);
             output = result.StdOut;
         }
 

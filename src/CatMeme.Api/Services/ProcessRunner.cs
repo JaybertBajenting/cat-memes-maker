@@ -43,6 +43,7 @@ public class ProcessRunner(ILogger<ProcessRunner> log)
         Action<int>? onStarted = null,
         string? stdin = null,
         string? workingDirectory = null,
+        IReadOnlyDictionary<string, string>? environment = null,
         CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo
@@ -62,6 +63,11 @@ public class ProcessRunner(ILogger<ProcessRunner> log)
             StandardErrorEncoding = new UTF8Encoding(false),
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
+
+        // Applied on top of the inherited environment, so callers only override what they
+        // name. Used to switch off the AI CLI's extended thinking per invocation.
+        if (environment is not null)
+            foreach (var (key, value) in environment) psi.Environment[key] = value;
 
         using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
         var so = new StringBuilder();
