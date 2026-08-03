@@ -36,11 +36,13 @@ public partial class ClaudeCliService(
     /// keeps every call far inside <see cref="CliTimeout"/> and means a late failure costs
     /// one chunk instead of the whole batch.
     ///
-    /// Five, because that is the default batch size: the common case is then a single call
-    /// and pays the per-call prompt overhead once. Five scripts measured 81 seconds, so the
-    /// timeout has ample headroom and there is no reason to split the usual batch further.
+    /// Three, because <see cref="ThinkingBudget"/> is on. Five in one call measured 526s
+    /// against the 15 minute timeout - safe, but 59% of the budget spent on a default
+    /// batch, and an empty batch on a slow day is the exact failure this pipeline already
+    /// had once. Three measured 208s. The extra call costs one more copy of the prompt,
+    /// about a cent, which is a cheap price for that much headroom.
     /// </summary>
-    private const int TopicsPerCall = 5;
+    private const int TopicsPerCall = 3;
 
     /// <summary>
     /// Replaces the interactive agent's system prompt. This job is one-shot text
@@ -52,14 +54,19 @@ public partial class ClaudeCliService(
         "the JSON the user asks for: no markdown, no prose, no code fences.";
 
     /// <summary>
-    /// Extended thinking is billed as output tokens, and against this prompt it bought
-    /// nothing measurable: with it and without it, every returned script passed the same
-    /// acceptance checks at the same 7-beat average. It cost 3.8x the output tokens and
-    /// 5.5x the wall time, because the constraints here are a checklist to follow rather
-    /// than a problem to reason through.
+    /// Extended thinking budget for a script call, billed as output tokens.
+    ///
+    /// Kept ON for the writing itself: the structural checks (beat count, roles, castable
+    /// actions) pass either way, but they cannot measure whether a joke lands, and that is
+    /// the part worth paying for. It is CAPPED rather than left open, because uncapped
+    /// thinking against a stripped-down system prompt ran away - the model reasoned for
+    /// minutes and cost more per call than the original full-agent setup did.
+    ///
+    /// Set to "0" to switch thinking off. That measured ~3.8x cheaper on output tokens and
+    /// ~5.5x faster, at the cost of whatever the reasoning was contributing to the comedy.
     /// </summary>
-    private static readonly Dictionary<string, string> NoExtendedThinking =
-        new() { ["MAX_THINKING_TOKENS"] = "0" };
+    private static readonly Dictionary<string, string> ThinkingBudget =
+        new() { ["MAX_THINKING_TOKENS"] = "4000" };
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -550,7 +557,7 @@ public partial class ClaudeCliService(
                  "--tools", "",
                  "--setting-sources", "",
                  "--strict-mcp-config"],
-                timeout, environment: NoExtendedThinking, ct: ct);
+                timeout, environment: ThinkingBudget, ct: ct);
             output = result.StdOut;
         }
 
