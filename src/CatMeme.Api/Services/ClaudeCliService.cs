@@ -165,10 +165,29 @@ public partial class ClaudeCliService(
             Voice, from a survey of top-performing cat meme reels:
             - "topic" is the on-screen title. Most should START with "POV:". Lowercase or
               sentence case, 5-12 words, first-person, deadpan.
-            - Write it the way someone would text a friend: PLAIN and LITERAL. The reader
-              must think "this is literally us". NO absurdist exaggeration, no surreal
-              images, no clever metaphors - "he acts like he's dying when he has a cold"
-              is right; "he has already written his will" is wrong.
+            - A title is a JOKE, not a topic. Naming a situation is NOT a joke: "she took
+              the blanket" or "he won't wake up" is a complaint, and nobody shares a
+              complaint. The line must TURN - its last few words have to reverse it,
+              escalate it past what is reasonable, or quietly admit something. Test every
+              title by asking what the second half does to the first. If it only continues
+              it, the title has no joke in it yet: rewrite it.
+            - The strongest turn is SELF-INCRIMINATION - the narrator is the one at fault
+              and gives themselves away without noticing. Write roughly half the batch this
+              way. NEVER write a whole batch where the partner is the only one in the wrong;
+              that reads as complaining about a person rather than laughing at a couple.
+            - Be SPECIFIC. A concrete number, object or span of time is what makes a reader
+              feel personally caught: "4 hours", "six alarms", "two months ago", "her side
+              of the bed". Vague nouns kill it - never "something", "stuff", "a while".
+            - PLAIN and LITERAL means REAL, not bland. Exaggerating a real behaviour is the
+              whole point: "he acts like he's dying when he has a cold" is right. What is
+              banned is the surreal and the writerly - nothing physically impossible, no
+              metaphors, no wordplay, no puns. "He has already written his will" is wrong.
+            - Two worked examples of the turn, to show the mechanism only. Do NOT reuse
+              either line:
+              flat -> "POV: she took the whole blanket and she's blaming me"
+              turned -> "POV: I took the whole blanket and somehow I'm the one upset"
+              flat -> "POV: he set six alarms and is still not awake"
+              turned -> "POV: I set six alarms and blamed her for turning one off"
             - EVERY script is about a ROMANTIC RELATIONSHIP. The two cats are a couple -
               me/gf, me/bf, her/him. This is the whole channel, so there are no exceptions:
               never write friend-group, roommate, sibling, parent, pet or coworker jokes.
@@ -182,7 +201,9 @@ public partial class ClaudeCliService(
               5am alarm, pretending to be fine, overreacting to something tiny, borrowing
               my hoodie and keeping it, who pays, taking forever to get ready, saying they
               don't care where we eat and then rejecting everywhere. Invent fresh ones too.
-              Do not write two scripts on the same theme in one batch.
+              Do not write two scripts on the same theme in one batch. These are STARTING
+              POINTS, not titles - a theme with no turn on it is exactly the flat line the
+              rules above reject.
             - "cat_a_label" / "cat_b_label" are short role tags shown next to each cat, and
               must read as a couple: "Me", "Gf", "Bf", "her:", "him:", "bae". Two cats are
               on screen almost always.
